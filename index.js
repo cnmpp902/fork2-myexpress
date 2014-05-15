@@ -3,8 +3,9 @@ var http = require('http'),
 module.exports = function(){  
   var app = function(req,res){
     var	stacks = [{stack:app.stack,index:0,url:req.url}],
-	next_layer,
-	current_stack = function(){return stacks[stacks.length-1];};
+	next_layer;
+    
+    var current_stack = function(){return stacks[stacks.length-1];};
 
     var next = function(err){
       var c = current_stack();
@@ -18,7 +19,7 @@ module.exports = function(){
 
     function run_func(lay,err){      
       if(lay === undefined){
-	if(stacks.length >1 ){ 
+	if(stacks.length >1 ){ //escape from subapp
 	  stacks.pop();
 	  req.url = current_stack().url;
 	  next(err);
@@ -34,7 +35,7 @@ module.exports = function(){
 	return;
       }
       var m = lay.match(req.url);
-      if(m === undefined){
+      if(m === undefined){ //not match url
 	next(err);
 	return;
       }
@@ -43,7 +44,7 @@ module.exports = function(){
       try{	  
 	var func = lay.handle;
 	if(typeof func.handle === "function"){ // is an express obj
-	  req.url = req.url.substr(m.path.length);
+	  req.url = req.url.substr(m.path.length); 
 	  stacks.push({stack:func.handle.stack,index:-1,url:req.url});	  
 	  next(err);
 	}
@@ -64,7 +65,7 @@ module.exports = function(){
   };
 
   app.stack = [];
-  app.constructor = app.handle = app;
+  app.handle = app; // app.constructor = app;
 
   app.use = function(){
     var path = "/",
