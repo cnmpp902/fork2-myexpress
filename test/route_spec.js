@@ -13,7 +13,7 @@ describe("route",function(){
     });
   });
   it("should return function when call makeroute",function(){
-    expect(makeRoute(route)).to.be.instanceof(Function);
+    expect(makeRoute("get",route)).to.be.instanceof(Function);
   });
   it("should return foo when get /foo",function(done){
     request(app).get("/foo").expect("foo",done);
