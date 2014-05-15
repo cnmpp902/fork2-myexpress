@@ -80,6 +80,9 @@ describe("layer",function(){
       subApp.use("/bar",function(req,res) {
 	res.end("embedded app: "+req.url);
       });
+      subApp.use("/acc",function(req,res){
+	res.end("embedded app: "+req.url);
+      });
       app.use("/foo",subApp);
       app.use("/foo",function(req,res) {
 	res.end("handler: "+req.url);
@@ -90,6 +93,9 @@ describe("layer",function(){
     });
     it("should return handler app for get /foo",function(done){
       request(app).get("/foo").expect("handler: /foo",done);
+    });
+    it("should return embbeded app for ger /foo/acc",function(done){
+      request(app).get("/foo/acc").expect("embedded app: /acc",done);
     });
   });
 });
