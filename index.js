@@ -46,8 +46,10 @@ module.exports = function(){
     // run 起来
     run_func(stack_temp[0],undefined);
   };
+
   app.stack = [];
   app.constructor = app;
+
   app.use = function(){
     var path = "/",
 	middleware = arguments[0];
@@ -61,11 +63,13 @@ module.exports = function(){
       app.stack.push(new layer(path,middleware));
     return app;
   };
+
   app.listen = function(port,callback){
     var server = http.createServer(this);
     server.listen(port,callback);
     return server;
   };
+
   return app;
 };
 

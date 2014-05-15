@@ -1,6 +1,5 @@
 var express = require("../"),
     Layer = require("../lib/layer"),
-    http = require("http"),
     expect = require("chai").expect,
     request = require("supertest");
 
@@ -20,5 +19,40 @@ describe("layer",function(){
   });
   
   describe("The middlewares called should match request path:",function(){
+    var app;
+    before(function(){
+      app = express();
+      app.use("/foo",function(req,res,next){
+	res.end("foo");
+      });
+      app.use(function(req,res,next){
+	res.end("root");
+      });
+    });
+    it("should return root for get /",function(done){
+      request(app).get('/').expect("root",done);
+    });
+    it("should return foo for get /foo",function(done){
+      request(app).get('/foo').expect("foo",done);      
+    });
+    it("should return foo for get /foo/",function(done){
+      request(app).get('/foo/').expect("foo",done);
+    });
+    it("should return /foo for get /foo/bar",function(done){
+      request(app).get('/foo/bar').expect("foo",done);
+    });
+    it("should return 404 for get /foodd",function(done){
+      request(app).get('/foodd').expect("root",done);
+    });
   });
 });
+
+
+
+
+
+
+
+
+
+
