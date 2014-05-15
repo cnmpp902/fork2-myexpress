@@ -1,4 +1,6 @@
 var http = require('http'),
+    makeRoute = require("./lib/route"),
+    methods = require("methods"),
     layer = require("./lib/layer");
 module.exports = function(){  
   var app = function(req,res){
@@ -69,14 +71,21 @@ module.exports = function(){
 
   app.use = function(){
     var path = "/",
-	middleware = arguments[0];
+	middleware = arguments[0],
+	option = false;
     if(arguments.length>1){
       path = arguments[0];
       middleware = arguments[1];
+      option = arguments[2];
     }
-    app.stack.push(new layer(path,middleware));
+    app.stack.push(new layer(path,middleware,option));
     return app;
   };
+  methods.forEach(function(method){
+    app[method] = function(path,middleware){
+      app.use(path,makeRoute(method,middleware),true);
+    };
+  });
 
   app.listen = function(port,callback){
     var server = http.createServer(this);
