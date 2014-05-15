@@ -81,6 +81,7 @@ module.exports = function(){
     app.stack.push(new layer(path,middleware,option));
     return app;
   };
+
   methods.forEach(function(method){
     app[method] = function(path,middleware){
       app.use(path,makeRoute(method,middleware),true);
