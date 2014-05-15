@@ -27,16 +27,18 @@ module.exports = function(){
 	}
 	return;
       }
-      if(lay.match(req.url)===undefined){
+      var m = lay.match(req.url);
+      if(m === undefined){
 	next(err);
 	return;
       }
 
-      req.params = lay.match(req.url).params;
+      req.params = m.params;
 
       if(lay.pre_path !== undefined){// 实现的有点不靠谱,其实我觉得 req.url没必要改
-	req.url = lay.match(req.url).path;
+	req.url = m.path;
       }
+
       try{	  
 	var func = lay.handle;
 	if(func.length<4 && err === undefined){	    
@@ -52,7 +54,7 @@ module.exports = function(){
       catch(e){
 	next(e);
       }
-    };
+    }
   };
 
   app.stack = [];
@@ -69,11 +71,12 @@ module.exports = function(){
     {      
       for(var i =0, len = middleware.stack.length; i<len; i++){
 	middleware.stack[i].pre_path = layer.prototype.trim(path);
-      }      
+      }   
       app.stack = app.stack.concat(middleware.stack);
     }
-    else
+    else{
       app.stack.push(new layer(path,middleware));
+    }
     return app;
   };
 
