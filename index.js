@@ -3,28 +3,26 @@ var http = require('http'),
     methods = require("methods"),
     layer = require("./lib/layer");
 module.exports = function(){  
-  var app = function(req,res){
-    var	stacks = [{stack:app.stack,index:0,url:req.url}],
-	next_layer;
-    
-    var current_stack = function(){return stacks[stacks.length-1];};
-
-    var next = function(err){
-      var c = current_stack();
-      c.index++;
-      next_layer = c.stack[c.index];
+  
+  var app = function(req,res,error,sub){
+    var	stack_temp = app.stack,
+	index = 0,
+	isSub = sub===true,
+	next_layer;   
+  
+    var next = function(err){      
+      index++;
+      next_layer = stack_temp[index];
       run_func(next_layer,err);    
     };
     
     // run 起来
-    run_func(current_stack().stack[0],undefined);
+    return run_func(stack_temp[0],error);
 
-    function run_func(lay,err){      
-      if(lay === undefined){
-	if(stacks.length >1 ){ //escape from subapp
-	  stacks.pop();
-	  req.url = current_stack().url;
-	  next(err);
+    function run_func(lay,err){  
+      if(lay === undefined){      
+	if(isSub){	
+	  app.err = err;
 	}
 	else if(err){
 	  res.statusCode = 500;
@@ -33,10 +31,11 @@ module.exports = function(){
 	else{
 	  res.statusCode = 404;
 	  res.end("404 - Not Found");   
-	}
+	}	
 	return;
       }
       var m = lay.match(req.url);
+
       if(m === undefined){ //not match url
 	next(err);
 	return;
@@ -44,41 +43,37 @@ module.exports = function(){
       req.params = m.params;
       
       try{	  
-	var func = lay.handle;
+	var func = lay.handle,
+	    url_temp;	    
 	if(typeof func.handle === "function"){ // is an express obj
+	  url_temp = req.url;
 	  req.url = req.url.substr(m.path.length); 
-	  stacks.push({stack:func.handle.stack,index:-1,url:req.url});	  
-	  next(err);
+	  func(req,res,err,true);
+	  req.url = url_temp;
+	  next(func.err);
 	}
 	else if(func.length<4 && err === undefined){	    
-	  func(req,res,next);
+	   func(req,res,next);
 	}
 	else if(func.length == 4 && err !== undefined){
 	  func(err,req,res,next);
 	}
 	else{
-	  next(err);
+	   next(err);
 	}
       }
       catch(e){
-	next(e);
+	 next(e);
       }
     }
   };
-
+  
   app.stack = [];
-  app.handle = app; // app.constructor = app;
+  app.handle = app; 
 
-  app.use = function(){
-    var path = "/",
-	middleware = arguments[0],
-	option = false;
-    if(arguments.length>1){
-      path = arguments[0];
-      middleware = arguments[1];
-      option = arguments[2];
-    }
-    app.stack.push(new layer(path,middleware,option));
+  app.use = function(path,middleware,option){
+    var notPath = arguments.length === 1;
+    app.stack.push(new layer(notPath?"/":path,notPath?path:middleware,option||false));
     return app;
   };
 
