@@ -80,8 +80,8 @@ module.exports = function(){
     return app;
   };
 
-  methods.push("all");
-  methods.forEach(function(method){
+  
+  methods.concat(["all"]).forEach(function(method){
     app[method] = function(path,middleware){
       //app.use(path,makeRoute(method,middleware),true);
       app.route(path)[method](middleware);
