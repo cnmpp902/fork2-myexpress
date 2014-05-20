@@ -4,25 +4,27 @@ var http = require('http'),
     layer = require("./lib/layer");
 module.exports = function(){  
   
-  var app = function(req,res,error,sub){
+  var app = function(req,res,sub_err,sub){
     var	stack_temp = app.stack,
 	index = 0,
 	isSub = sub===true,
-	next_layer;   
-  
-    var next = function(err){      
-      index++;
-      next_layer = stack_temp[index];
-      run_func(next_layer,err);    
-    };
-    
+	next_layer,
+	ret_err;   
+      
     // run 起来
-    return run_func(stack_temp[0],error);
+    run_func(stack_temp[0],sub_err);
+    return ret_err;
 
     function run_func(lay,err){  
+      var next = function(e){      
+	index++;
+	next_layer = stack_temp[index];
+	run_func(next_layer,e);    
+      };
+
       if(lay === undefined){      
 	if(isSub){	
-	  app.err = err;
+	  ret_err = err;
 	}
 	else if(err){
 	  res.statusCode = 500;
@@ -47,11 +49,12 @@ module.exports = function(){
 	    url_temp;	    
 	if(typeof func.handle === "function"){ // is an express obj
 	  url_temp = req.url;
-	  req.url = req.url.substr(m.path.length); 
-	  func(req,res,err,true);
+	  req.url = req.url.substr(m.path.length);
+	  err = func(req,res,err,true);
 	  req.url = url_temp;
-	  next(func.err);
+	  next(err);
 	}
+
 	else if(func.length<4 && err === undefined){	    
 	   func(req,res,next);
 	}
@@ -71,15 +74,18 @@ module.exports = function(){
   app.stack = [];
   app.handle = app; 
 
-  app.use = function(path,middleware,option){
+  app.use = function(path,middleware,option){    
     var notPath = arguments.length === 1;
     app.stack.push(new layer(notPath?"/":path,notPath?path:middleware,option||false));
     return app;
   };
 
+  methods.push("all");
   methods.forEach(function(method){
     app[method] = function(path,middleware){
-      app.use(path,makeRoute(method,middleware),true);
+      //app.use(path,makeRoute(method,middleware),true);
+      app.route(path)[method](middleware);
+      return app;
     };
   });
 
@@ -88,6 +94,10 @@ module.exports = function(){
     server.listen(port,callback);
     return server;
   };
-
+  app.route = function(path){
+    var r = makeRoute();
+    app.use(path,r,false);
+    return r;
+  };
   return app;
 };
