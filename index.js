@@ -1,6 +1,7 @@
 var http = require('http'),
     makeRoute = require("./lib/route"),
     methods = require("methods"),
+    createInjector = require("./lib/injector"),
     layer = require("./lib/layer");
 module.exports = function(){  
   
@@ -72,14 +73,22 @@ module.exports = function(){
   };
   
   app.stack = [];
+  app._factories = {};
   app.handle = app; 
+
+  app.factory = function(name,fn){
+    app._factories[name] = fn;
+  };
+
+  app.inject = function(fn){
+    return createInjector(fn,app);
+  };
 
   app.use = function(path,middleware,option){    
     var notPath = arguments.length === 1;
     app.stack.push(new layer(notPath?"/":path,notPath?path:middleware,option||false));
     return app;
   };
-
   
   methods.concat(["all"]).forEach(function(method){
     app[method] = function(path,middleware){
@@ -96,8 +105,9 @@ module.exports = function(){
   };
   app.route = function(path){
     var r = makeRoute();
-    app.use(path,r,false);
+    app.use(path,r,true);//false to true..
     return r;
   };
+
   return app;
 };
