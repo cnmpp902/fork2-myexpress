@@ -4,7 +4,9 @@ var http = require('http'),
     createInjector = require("./lib/injector"),
     layer = require("./lib/layer"),
     req_proto = require("./lib/request"),
-    res_proto = require("./lib/response");
+    res_proto = require("./lib/response"),
+    mime = require("mime"),
+    accepts = require('accepts');
 module.exports = function(){  
   
   var app = function(req,res,sub_err,sub){
@@ -31,8 +33,8 @@ module.exports = function(){
 	  ret_err = err;
 	}
 	else if(err){
-	  res.statusCode = 500;
-	  res.end("500 - Internal Error");   
+	  res.statusCode = err.statusCode||500;
+	  res.end(err.message||"500 - Internal Error");   
 	}
 	else{
 	  res.statusCode = 404;
@@ -131,6 +133,28 @@ module.exports = function(){
 	'Location':new_path
       });      
       res.end();
+    };
+    res.__proto__.type = function(ext){
+      res.setHeader('Content-Type',mime.lookup(ext));
+    };
+    res.__proto__.default_type = function(ext){
+      if(!res.getHeader('content-type')){
+	res.__proto__.type(ext);
+      }
+    };
+    res.__proto__.format = function(obj){
+      var keys = Object.keys(obj),
+	  accept = accepts(req),
+	  ext = accept.type(keys);
+      if(!ext.length){
+	var err = new Error("Not Acceptable");
+	err.statusCode = 406;
+	throw err;
+      }
+      else{
+	res.__proto__.default_type(ext);
+	obj[ext]();
+      }
     };
   };
 
