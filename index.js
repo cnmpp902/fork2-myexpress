@@ -5,8 +5,8 @@ var http = require('http'),
     layer = require("./lib/layer"),
     req_proto = require("./lib/request"),
     res_proto = require("./lib/response"),
-    mime = require("mime"),
-    accepts = require('accepts');
+    accepts = require('accepts'),
+    crc32 = require('buffer-crc32');
 module.exports = function(){  
   
   var app = function(req,res,sub_err,sub){
@@ -63,17 +63,17 @@ module.exports = function(){
 	}
 
 	else if(func.length<4 && err === undefined){	    
-	   func(req,res,next);
+	  func(req,res,next);
 	}
 	else if(func.length == 4 && err !== undefined){
 	  func(err,req,res,next);
 	}
 	else{
-	   next(err);
+	  next(err);
 	}
       }
       catch(e){
-	 next(e);
+	next(e);
       }
     }
   };
@@ -115,35 +115,15 @@ module.exports = function(){
     return r;
   };
   
-  
   app.monkey_patch = function(req,res){
     req.__proto__ = req_proto;
     res.__proto__ = res_proto;
     req.__proto__.app = app;
     req.__proto__.res = res;
     res.__proto__.req = req;
-    res.__proto__.redirect = function(code,new_path){
-      var isDefault = arguments.length == 1;
-      if(isDefault){
-	new_path = code;
-	code = 302;
-      }
-      res.writeHead(code,{
-	'Content-Length':0,
-	'Location':new_path
-      });      
-      res.end();
-    };
-    res.__proto__.type = function(ext){
-      res.setHeader('Content-Type',mime.lookup(ext));
-    };
-    res.__proto__.default_type = function(ext){
-      if(!res.getHeader('content-type')){
-	res.__proto__.type(ext);
-      }
-    };
     res.__proto__.format = function(obj){
-      var keys = Object.keys(obj),
+      var res = this,
+	  keys = Object.keys(obj),
 	  accept = accepts(req),
 	  ext = accept.type(keys);
       if(!ext.length){
@@ -152,11 +132,47 @@ module.exports = function(){
 	throw err;
       }
       else{
-	res.__proto__.default_type(ext);
+	res.default_type(ext);
 	obj[ext]();
       }
     };
+    res.__proto__.send = function(code,data){
+      var len = 0;
+      data = data||code;
+      if(typeof code == "number"){
+	res.statusCode = code;
+	if(arguments.length==1){
+	  res.end(http.STATUS_CODES[code]);
+	}
+      }
+      if(
+	(this.req.headers["if-none-match"] && 
+	 this.req.headers["if-none-match"] == res.getHeader('Etag') ) ||
+	(this.req.headers["if-modified-since"] &&
+	 this.req.headers["if-modified-since"] >= res.getHeader('Last-Modified'))
+      ){
+	res.statusCode = 304;
+      }
+      if(req.method == "GET" && data && !res.getHeader('Etag')){
+	res.setHeader('ETag','\"' + crc32.unsigned(data)+ '\"') ;
+      }
+      
+      if(typeof data == "string"){
+	res.default_type("html");
+	len =Buffer.byteLength(data);
+      }
+      else if(data instanceof Buffer){
+	res.default_type("octet-stream");
+	len = data.length;
+      }
+      else {//(data instanceof Object);
+	res.default_type("json");
+	data = JSON.stringify(data);
+	len =Buffer.byteLength(data);
+      }      
+      res.setHeader('Content-Length',len);
+      res.end(data);
+    };
   };
-
   return app;
 };
