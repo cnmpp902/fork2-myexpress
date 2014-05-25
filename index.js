@@ -4,9 +4,7 @@ var http = require('http'),
     createInjector = require("./lib/injector"),
     layer = require("./lib/layer"),
     req_proto = require("./lib/request"),
-    res_proto = require("./lib/response"),
-    accepts = require('accepts'),
-    crc32 = require('buffer-crc32');
+    res_proto = require("./lib/response");
 module.exports = function(){  
   
   var app = function(req,res,sub_err,sub){
@@ -121,58 +119,6 @@ module.exports = function(){
     req.__proto__.app = app;
     req.__proto__.res = res;
     res.__proto__.req = req;
-    res.__proto__.format = function(obj){
-      var res = this,
-	  keys = Object.keys(obj),
-	  accept = accepts(req),
-	  ext = accept.type(keys);
-      if(!ext.length){
-	var err = new Error("Not Acceptable");
-	err.statusCode = 406;
-	throw err;
-      }
-      else{
-	res.default_type(ext);
-	obj[ext]();
-      }
-    };
-    res.__proto__.send = function(code,data){
-      var len = 0;
-      data = data||code;
-      if(typeof code == "number"){
-	res.statusCode = code;
-	if(arguments.length==1){
-	  res.end(http.STATUS_CODES[code]);
-	}
-      }
-      if(
-	(this.req.headers["if-none-match"] && 
-	 this.req.headers["if-none-match"] == res.getHeader('Etag') ) ||
-	(this.req.headers["if-modified-since"] &&
-	 this.req.headers["if-modified-since"] >= res.getHeader('Last-Modified'))
-      ){
-	res.statusCode = 304;
-      }
-      if(req.method == "GET" && data && !res.getHeader('Etag')){
-	res.setHeader('ETag','\"' + crc32.unsigned(data)+ '\"') ;
-      }
-      
-      if(typeof data == "string"){
-	res.default_type("html");
-	len =Buffer.byteLength(data);
-      }
-      else if(data instanceof Buffer){
-	res.default_type("octet-stream");
-	len = data.length;
-      }
-      else {//(data instanceof Object);
-	res.default_type("json");
-	data = JSON.stringify(data);
-	len =Buffer.byteLength(data);
-      }      
-      res.setHeader('Content-Length',len);
-      res.end(data);
-    };
   };
   return app;
 };
