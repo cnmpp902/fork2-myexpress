@@ -2,7 +2,9 @@ var http = require('http'),
     makeRoute = require("./lib/route"),
     methods = require("methods"),
     createInjector = require("./lib/injector"),
-    layer = require("./lib/layer");
+    layer = require("./lib/layer"),
+    req_proto = require("./lib/request"),
+    res_proto = require("./lib/response");
 module.exports = function(){  
   
   var app = function(req,res,sub_err,sub){
@@ -11,7 +13,8 @@ module.exports = function(){
 	isSub = sub===true,
 	next_layer,
 	ret_err;   
-      
+
+    app.monkey_patch(req,res);    
     // run 起来
     run_func(stack_temp[0],sub_err);
     return ret_err;
@@ -53,6 +56,7 @@ module.exports = function(){
 	  req.url = req.url.substr(m.path.length);
 	  err = func(req,res,err,true);
 	  req.url = url_temp;
+	  req.__proto__.app = app;//restore to parent
 	  next(err);
 	}
 
@@ -107,6 +111,27 @@ module.exports = function(){
     var r = makeRoute();
     app.use(path,r,true);//false to true..
     return r;
+  };
+  
+  
+  app.monkey_patch = function(req,res){
+    req.__proto__ = req_proto;
+    res.__proto__ = res_proto;
+    req.__proto__.app = app;
+    req.__proto__.res = res;
+    res.__proto__.req = req;
+    res.__proto__.redirect = function(code,new_path){
+      var isDefault = arguments.length == 1;
+      if(isDefault){
+	new_path = code;
+	code = 302;
+      }
+      res.writeHead(code,{
+	'Content-Length':0,
+	'Location':new_path
+      });      
+      res.end();
+    };
   };
 
   return app;
